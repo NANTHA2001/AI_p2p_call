@@ -44,3 +44,6 @@ Audio is streamed → transcribed to text → processed by GPT-4 → replied wit
 "Today in New York, it’s sunny with a high of 26°C."
 
 Response is converted into audio → streamed back to the user.
+
+
+![Output Screenshot](output.png)
