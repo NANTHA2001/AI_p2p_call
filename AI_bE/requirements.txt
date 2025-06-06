@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+openai
+gtts
+google-cloud-speech
+websockets
