@@ -8,3 +8,7 @@ python-dotenv
 httpx
 aiohttp
 feedparser
+wikipedia
+websockets
+beautifulsoup4
+google-api-python-client
