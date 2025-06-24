@@ -9,7 +9,9 @@ from fastapi import WebSocket
 from dotenv import load_dotenv
 from app.audio_utils import text_to_speech
 from app.knowledge_openai import generate_openai_response_stream
+
 from google.cloud import speech_v1p1beta1 as speech
+from google.oauth2 import service_account
 
 load_dotenv()
 
@@ -31,7 +33,16 @@ async def websocket_stt_endpoint(websocket: WebSocket):
     transcript_queue = asyncio.Queue()
     loop = asyncio.get_event_loop()
     executor = concurrent.futures.ThreadPoolExecutor()
-    speech_client = speech.SpeechClient()
+
+    # ✅ Load credentials from env (Railway-compatible)
+    credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+    if not credentials_json:
+        raise RuntimeError("Missing GOOGLE_APPLICATION_CREDENTIALS_JSON env variable")
+    credentials_info = json.loads(credentials_json)
+    credentials = service_account.Credentials.from_service_account_info(credentials_info)
+
+    # ✅ Use credentials to create SpeechClient
+    speech_client = speech.SpeechClient(credentials=credentials)
 
     streaming_config = speech.StreamingRecognitionConfig(
         config=speech.RecognitionConfig(
