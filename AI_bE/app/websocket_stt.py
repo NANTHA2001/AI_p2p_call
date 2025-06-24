@@ -35,7 +35,7 @@ async def websocket_stt_endpoint(websocket: WebSocket):
     executor = concurrent.futures.ThreadPoolExecutor()
 
     # ✅ Load credentials from env (Railway-compatible)
-    credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+    credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
     if not credentials_json:
         raise RuntimeError("Missing GOOGLE_APPLICATION_CREDENTIALS_JSON env variable")
     credentials_info = json.loads(credentials_json)
