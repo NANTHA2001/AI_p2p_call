@@ -120,33 +120,45 @@ async def websocket_stt_endpoint(websocket: WebSocket):
             )
 
     async def handle_ai_worker():
+        current_task = None
+
         while not stop_event.is_set():
             transcript = await transcript_queue.get()
-            try:
-                print("🔍 Fetching OpenAI response for:", transcript)
-                text_stream = generate_openai_response_stream(transcript)
 
-                full_response = ""
-                async for chunk in text_stream:
-                    full_response += chunk
+            # Cancel previous task if still running
+            if current_task and not current_task.done():
+                current_task.cancel()
+                print("⛔ Previous AI response interrupted")
 
-                if not full_response.strip():
-                    raise ValueError("Empty response from OpenAI")
+            async def process_transcript(text: str):
+                try:
+                    print("🔍 Fetching OpenAI response for:", text)
+                    text_stream = generate_openai_response_stream(text)
 
-                audio_bytes = text_to_speech(full_response)
-                await websocket.send_bytes(audio_bytes)
+                    full_response = ""
+                    async for chunk in text_stream:
+                        full_response += chunk
 
-            except asyncio.TimeoutError:
-                fallback = "Sorry, I didn't catch that. Could you rephrase or try another question?"
-                print("⚠️ Timeout: sending fallback message")
-                audio_bytes = text_to_speech(fallback)
-                await websocket.send_bytes(audio_bytes)
+                    if not full_response.strip():
+                        raise ValueError("Empty response from OpenAI")
 
-            except Exception as e:
-                print("AI+TTS error:", e)
-                fallback = "I'm not sure how to respond to that. Could you try something else?"
-                audio_bytes = text_to_speech(fallback)
-                await websocket.send_bytes(audio_bytes)
+                    audio_bytes = text_to_speech(full_response)
+                    await websocket.send_bytes(audio_bytes)
+
+                except asyncio.CancelledError:
+                    print("🛑 AI task was cancelled")
+                except asyncio.TimeoutError:
+                    fallback = "Sorry, I didn't catch that. Could you rephrase or try another question?"
+                    audio_bytes = text_to_speech(fallback)
+                    await websocket.send_bytes(audio_bytes)
+                except Exception as e:
+                    print("AI+TTS error:", e)
+                    fallback = "I'm not sure how to respond to that. Could you try something else?"
+                    audio_bytes = text_to_speech(fallback)
+                    await websocket.send_bytes(audio_bytes)
+
+            current_task = asyncio.create_task(process_transcript(transcript))
+
 
     async def watchdog():
         await asyncio.sleep(290)
