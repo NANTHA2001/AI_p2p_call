@@ -4,3 +4,7 @@ openai
 gtts
 google-cloud-speech
 websockets
+python-dotenv
+httpx
+aiohttp
+feedparser
