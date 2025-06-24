@@ -128,7 +128,7 @@ export default function App() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      const ws = new WebSocket('ws://localhost:3000/ws-stt');
+      const ws = new WebSocket('wss://aip2pcall-production.up.railway.app/ws-stt');
       ws.binaryType = 'arraybuffer';
       wsRef.current = ws;
 
