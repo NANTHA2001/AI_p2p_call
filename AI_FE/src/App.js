@@ -1,28 +1,32 @@
 import React, { useState, useRef, useEffect } from 'react';
+import './App.css'; // assuming your CSS is in App.css
 
 const USER_IMG = 'https://randomuser.me/api/portraits/men/32.jpg';
+// const AI_IMG = 'https://randomuser.me/api/portraits/women/65.jpg';
+// const AI_IMG_TALKING = 'https://randomuser.me/api/portraits/women/66.jpg'; // Simulated mouth-open image
 const AI_IMG = 'https://randomuser.me/api/portraits/women/65.jpg';
 
-function ProfileWithWave({ img, isSpeaking, color }) {
-  const [scale, setScale] = useState(1);
+// AI talking image (simulated mouth open)
+const AI_IMG_TALKING = 'https://randomuser.me/api/portraits/women/66.jpg';
 
-  useEffect(() => {
-    if (!isSpeaking) {
-      setScale(1);
-      return;
-    }
-    let frameId;
-    const animate = () => {
-      const newScale = 1 + 0.3 * Math.abs(Math.sin(Date.now() / 300));
-      setScale(newScale);
-      frameId = requestAnimationFrame(animate);
-    };
-    animate();
-    return () => cancelAnimationFrame(frameId);
-  }, [isSpeaking]);
+
+function ProfileWithWave({ img, imgTalking, isSpeaking, isListening, color }) {
+  const headShakeStyle = isListening
+    ? {
+        animation: 'head-listening 1.5s infinite ease-in-out',
+        transformOrigin: 'center bottom',
+      }
+    : {};
+
+  const speakingGlowStyle = isSpeaking
+    ? {
+        animation: 'speaking-glow 1s infinite',
+      }
+    : {};
 
   return (
     <div style={{ position: 'relative', width: 150, height: 150, margin: 20 }}>
+      {/* Background pulse while speaking */}
       <div
         style={{
           position: 'absolute',
@@ -31,7 +35,7 @@ function ProfileWithWave({ img, isSpeaking, color }) {
           width: 150,
           height: 150,
           borderRadius: '50%',
-          transform: `translate(-50%, -50%) scale(${scale})`,
+          transform: `translate(-50%, -50%)`,
           backgroundColor: color,
           opacity: isSpeaking ? 0.3 : 0,
           filter: 'blur(12px)',
@@ -40,26 +44,42 @@ function ProfileWithWave({ img, isSpeaking, color }) {
           zIndex: 0,
         }}
       />
-      <img
-        src={img}
-        alt="profile"
+
+      {/* AI face container */}
+      <div
         style={{
           width: 150,
           height: 150,
           borderRadius: '50%',
           border: `4px solid ${color}`,
-          objectFit: 'cover',
           position: 'relative',
+          overflow: 'hidden',
           zIndex: 1,
-          boxShadow: isSpeaking
-            ? `0 0 15px 5px ${color}`
-            : '0 0 5px 1px rgba(0,0,0,0.3)',
-          transition: 'box-shadow 0.3s',
+          backgroundColor: '#fff',
+          ...speakingGlowStyle,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
         }}
-      />
+      >
+        {/* AI head image */}
+        <img
+          src={isSpeaking ? imgTalking : img}
+          alt="AI"
+          style={{
+            width: '90%',
+            height: '90%',
+            borderRadius: '50%',
+            objectFit: 'cover',
+            ...headShakeStyle,
+          }}
+        />
+      </div>
     </div>
   );
 }
+
+
 
 export default function App() {
   const [isRecording, setIsRecording] = useState(false);
@@ -74,7 +94,20 @@ export default function App() {
 
   const userSpeaking = isRecording && volume > 15;
 
-  // Simulate mic volume only (remove AI speaking timer simulation)
+  useEffect(() => {
+    if (!isRecording || !wsRef.current) return;
+
+    const interval = setInterval(() => {
+      if (wsRef.current.readyState === WebSocket.OPEN) {
+        const silence = new Int16Array(480);
+        wsRef.current.send(silence.buffer);
+        console.log('📤 Sent silence packet');
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [isRecording]);
+
   useEffect(() => {
     if (isRecording) {
       setVolume(0);
@@ -95,7 +128,7 @@ export default function App() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      const ws = new WebSocket('ws://127.0.0.1:3000/ws-stt');
+      const ws = new WebSocket('ws://localhost:3000/ws-stt');
       ws.binaryType = 'arraybuffer';
       wsRef.current = ws;
 
@@ -112,7 +145,6 @@ export default function App() {
           try {
             const audioBuffer = await audioCtx.decodeAudioData(event.data.slice(0));
 
-            // Stop previous AI audio if any
             if (currentAudioSourceRef.current) {
               try {
                 currentAudioSourceRef.current.stop();
@@ -125,11 +157,12 @@ export default function App() {
             source.buffer = audioBuffer;
             source.connect(audioCtx.destination);
 
-            setAiSpeaking(true); // AI started speaking
+            setAiSpeaking(true);
             setIsRecording(false);
 
             source.onended = () => {
-              setAiSpeaking(false); // AI stopped speaking
+              setAiSpeaking(false);
+              setIsRecording(true);
             };
 
             source.start(0);
@@ -137,6 +170,7 @@ export default function App() {
           } catch (err) {
             console.error('Error decoding audio from server:', err);
             setAiSpeaking(false);
+            setIsRecording(true);
           }
         }
       };
@@ -243,7 +277,9 @@ export default function App() {
         <div style={{ textAlign: 'center' }}>
           <ProfileWithWave
             img={USER_IMG}
+            imgTalking={USER_IMG}
             isSpeaking={userSpeaking}
+            isListening={false}
             color="#4caf50"
           />
           <div style={{ marginTop: 10, fontWeight: 'bold' }}>You</div>
@@ -252,7 +288,9 @@ export default function App() {
         <div style={{ textAlign: 'center' }}>
           <ProfileWithWave
             img={AI_IMG}
+            imgTalking={AI_IMG_TALKING}
             isSpeaking={aiSpeaking}
+            isListening={isRecording}
             color="#2196f3"
           />
           <div style={{ marginTop: 10, fontWeight: 'bold' }}>AI</div>

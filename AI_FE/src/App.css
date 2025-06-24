@@ -36,3 +36,48 @@
     transform: rotate(360deg);
   }
 }
+
+
+@keyframes shake {
+  0% { transform: translateX(0px); }
+  25% { transform: translateX(-3px); }
+  50% { transform: translateX(3px); }
+  75% { transform: translateX(-3px); }
+  100% { transform: translateX(0px); }
+}
+
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes head-listening {
+  0% { transform: rotate(0deg); }
+  25% { transform: rotate(2deg); }
+  50% { transform: rotate(-2deg); }
+  75% { transform: rotate(1deg); }
+  100% { transform: rotate(0deg); }
+}
+
+
+@keyframes head-listening {
+  0% { transform: rotate(0deg); }
+  25% { transform: rotate(1.5deg); }
+  50% { transform: rotate(-1.5deg); }
+  75% { transform: rotate(1deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes speaking-glow {
+  0% { box-shadow: 0 0 0px #2196f3; }
+  50% { box-shadow: 0 0 15px #2196f3; }
+  100% { box-shadow: 0 0 0px #2196f3; }
+}

@@ -1,4 +1,7 @@
-AI_bE/.env
+AI_bE/app/.venv
 AI_bE/secrets/secrets.json
 AI_bE/secrets/secrets.json
+AI_bE/app/.venv
 AI_bE/.env
+__pycache__/
+*.py[cod]
