@@ -54,7 +54,7 @@ async def websocket_stt_endpoint(websocket: WebSocket):
             model="default",
             use_enhanced=True,
             speech_contexts=[
-                speech.SpeechContext(phrases=["OpenAI", "ChatGPT", "JavaScript", "React", "WebRTC"])
+                speech.SpeechContext(phrases=["OpenAI", "ChatGPT", "Nova", "Bigthinkcode","JavaScript", "React", "WebRTC"])
             ],
         ),
         interim_results=True,
