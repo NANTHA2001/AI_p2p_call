@@ -48,13 +48,16 @@ async def websocket_stt_endpoint(websocket: WebSocket):
         config=speech.RecognitionConfig(
             encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
             sample_rate_hertz=48000,
-            language_code="en-IN",
+            language_code="en-US",
             enable_automatic_punctuation=True,
             diarization_speaker_count=2,
             model="default",
             use_enhanced=True,
             speech_contexts=[
-                speech.SpeechContext(phrases=["Nova"], boost=20.0),
+                 speech.SpeechContext(
+                    phrases=["Hey Nova", "Nova", "Okay Nova", "Hello Nova"],
+                    boost=20.0  # you can also try 15.0 if too sensitive
+                ),
                 speech.SpeechContext(phrases=["OpenAI", "ChatGPT", "Nova", "Bigthinkcode","JavaScript", "React", "WebRTC"])
             ],
         ),
