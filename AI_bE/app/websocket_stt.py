@@ -28,20 +28,17 @@ async def websocket_stt_endpoint(websocket: WebSocket):
     print(f"🔗 STT connection: {session_id}")
 
     stop_event = threading.Event()
-    audio_queue = asyncio.Queue()
     sync_queue = SimpleQueue()
     transcript_queue = asyncio.Queue()
     loop = asyncio.get_event_loop()
     executor = concurrent.futures.ThreadPoolExecutor()
 
-    # ✅ Load credentials from env (Railway-compatible)
     credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
     if not credentials_json:
         raise RuntimeError("Missing GOOGLE_APPLICATION_CREDENTIALS_JSON env variable")
     credentials_info = json.loads(credentials_json)
     credentials = service_account.Credentials.from_service_account_info(credentials_info)
 
-    # ✅ Use credentials to create SpeechClient
     speech_client = speech.SpeechClient(credentials=credentials)
 
     streaming_config = speech.StreamingRecognitionConfig(
@@ -56,7 +53,7 @@ async def websocket_stt_endpoint(websocket: WebSocket):
             speech_contexts=[
                 speech.SpeechContext(
                     phrases=["Bigthinkcode", "Hey Nova", "Nova", "Okay Nova", "Hello Nova"],
-                    boost=25.0  # you can also try 15.0 if too sensitive
+                    boost=25.0
                 ),
                 speech.SpeechContext(phrases=["OpenAI", "ChatGPT", "JavaScript", "React", "WebRTC"])
             ],
@@ -88,13 +85,6 @@ async def websocket_stt_endpoint(websocket: WebSocket):
             sync_queue.put(None)
             stop_event.set()
 
-    async def send_silence_fill():
-        while not stop_event.is_set():
-            await asyncio.sleep(2)
-            if audio_queue.empty():
-                silence = b'\x00' * 960
-                sync_queue.put(speech.StreamingRecognizeRequest(audio_content=silence))
-
     def stt_blocking():
         last_transcript = ""
         try:
@@ -106,18 +96,18 @@ async def websocket_stt_endpoint(websocket: WebSocket):
                     continue
                 transcript = result.alternatives[0].transcript.strip()
 
-                if transcript and result.is_final:
-                    print("✅ Final:", transcript)
+                if transcript:
+                    is_final = result.is_final
                     asyncio.run_coroutine_threadsafe(
-                        websocket.send_text(json.dumps({"transcript": transcript, "isFinal": True})), loop
+                        websocket.send_text(json.dumps({"transcript": transcript, "isFinal": is_final})), loop
                     )
-                    asyncio.run_coroutine_threadsafe(transcript_queue.put(transcript), loop)
-                elif transcript != last_transcript:
-                    last_transcript = transcript
-                    print("🔄 Interim:", transcript)
-                    asyncio.run_coroutine_threadsafe(
-                        websocket.send_text(json.dumps({"transcript": transcript, "isFinal": False})), loop
-                    )
+
+                    if is_final:
+                        print("✅ Final:", transcript)
+                        asyncio.run_coroutine_threadsafe(transcript_queue.put(transcript), loop)
+                    elif transcript != last_transcript:
+                        print("🔄 Interim:", transcript)
+                        last_transcript = transcript
         except Exception as e:
             print("🛑 STT error:", e)
             asyncio.run_coroutine_threadsafe(
@@ -126,11 +116,8 @@ async def websocket_stt_endpoint(websocket: WebSocket):
 
     async def handle_ai_worker():
         current_task = None
-
         while not stop_event.is_set():
             transcript = await transcript_queue.get()
-
-            # Cancel previous task if still running
             if current_task and not current_task.done():
                 current_task.cancel()
                 print("⛔ Previous AI response interrupted")
@@ -139,31 +126,17 @@ async def websocket_stt_endpoint(websocket: WebSocket):
                 try:
                     print("🔍 Fetching OpenAI response for:", text)
                     text_stream = generate_openai_response_stream(text)
-
                     full_response = ""
                     async for chunk in text_stream:
                         full_response += chunk
-
-                    if not full_response.strip():
-                        raise ValueError("Empty response from OpenAI")
-
-                    audio_bytes = text_to_speech(full_response)
-                    await websocket.send_bytes(audio_bytes)
-
-                except asyncio.CancelledError:
-                    print("🛑 AI task was cancelled")
-                except asyncio.TimeoutError:
-                    fallback = "Sorry, I didn't catch that. Could you rephrase or try another question?"
-                    audio_bytes = text_to_speech(fallback)
+                    audio_bytes = text_to_speech(full_response or "I'm not sure how to respond to that.")
                     await websocket.send_bytes(audio_bytes)
                 except Exception as e:
                     print("AI+TTS error:", e)
-                    fallback = "I'm not sure how to respond to that. Could you try something else?"
-                    audio_bytes = text_to_speech(fallback)
-                    await websocket.send_bytes(audio_bytes)
+                    fallback = text_to_speech("Something went wrong. Please try again.")
+                    await websocket.send_bytes(fallback)
 
             current_task = asyncio.create_task(process_transcript(transcript))
-
 
     async def watchdog():
         await asyncio.sleep(290)
@@ -172,7 +145,6 @@ async def websocket_stt_endpoint(websocket: WebSocket):
 
     tasks = [
         asyncio.create_task(receive_audio()),
-        asyncio.create_task(send_silence_fill()),
         asyncio.create_task(handle_ai_worker()),
         asyncio.create_task(watchdog())
     ]
