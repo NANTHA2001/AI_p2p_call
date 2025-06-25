@@ -54,11 +54,11 @@ async def websocket_stt_endpoint(websocket: WebSocket):
             model="default",
             use_enhanced=True,
             speech_contexts=[
-                 speech.SpeechContext(
-                    phrases=["Hey Nova", "Nova", "nova", "hey nova","okay nova","hello nova", "Okay Nova", "Hello Nova"],
-                    boost=15.0  # you can also try 15.0 if too sensitive
+                speech.SpeechContext(
+                    phrases=["Bigthinkcode", "Hey Nova", "Nova", "Okay Nova", "Hello Nova"],
+                    boost=25.0  # you can also try 15.0 if too sensitive
                 ),
-                speech.SpeechContext(phrases=["OpenAI", "ChatGPT", "Nova","hey Nova", "nova", "Bigthinkcode","JavaScript", "React", "WebRTC"])
+                speech.SpeechContext(phrases=["OpenAI", "ChatGPT", "JavaScript", "React", "WebRTC"])
             ],
         ),
         interim_results=True,
@@ -79,7 +79,7 @@ async def websocket_stt_endpoint(websocket: WebSocket):
             while not stop_event.is_set():
                 data = await websocket.receive_bytes()
                 buffer += data
-                if time.time() - last_send >= 0.1:
+                if time.time() - last_send >= 0.2:
                     sync_queue.put(speech.StreamingRecognizeRequest(audio_content=buffer))
                     buffer = b''
                     last_send = time.time()
@@ -90,9 +90,9 @@ async def websocket_stt_endpoint(websocket: WebSocket):
 
     async def send_silence_fill():
         while not stop_event.is_set():
-            await asyncio.sleep(5)
+            await asyncio.sleep(2)
             if audio_queue.empty():
-                silence = b'\x00' * 960 
+                silence = b'\x00' * 960
                 sync_queue.put(speech.StreamingRecognizeRequest(audio_content=silence))
 
     def stt_blocking():
@@ -108,18 +108,10 @@ async def websocket_stt_endpoint(websocket: WebSocket):
 
                 if transcript and result.is_final:
                     print("✅ Final:", transcript)
-
                     asyncio.run_coroutine_threadsafe(
                         websocket.send_text(json.dumps({"transcript": transcript, "isFinal": True})), loop
                     )
-
-                    if "nova" in transcript.lower(): 
-                        cleaned = transcript.lower().replace("nova", "").strip()
-                        print("🧠 Wake-word detected. Sending to OpenAI:", cleaned)
-                        asyncio.run_coroutine_threadsafe(transcript_queue.put(cleaned), loop)
-                    else:
-                        print("⏸️ Ignored (no wake-word):", transcript)
-
+                    asyncio.run_coroutine_threadsafe(transcript_queue.put(transcript), loop)
                 elif transcript != last_transcript:
                     last_transcript = transcript
                     print("🔄 Interim:", transcript)
