@@ -50,6 +50,7 @@ async def websocket_stt_endpoint(websocket: WebSocket):
             sample_rate_hertz=48000,
             language_code="en-US",
             enable_automatic_punctuation=True,
+            diarization_speaker_count=2,
             model="default",
             use_enhanced=True,
             speech_contexts=[
@@ -103,10 +104,18 @@ async def websocket_stt_endpoint(websocket: WebSocket):
 
                 if transcript and result.is_final:
                     print("✅ Final:", transcript)
+
                     asyncio.run_coroutine_threadsafe(
                         websocket.send_text(json.dumps({"transcript": transcript, "isFinal": True})), loop
                     )
-                    asyncio.run_coroutine_threadsafe(transcript_queue.put(transcript), loop)
+
+                    if "nova" in transcript.lower(): 
+                        cleaned = transcript.lower().replace("nova", "").strip()
+                        print("🧠 Wake-word detected. Sending to OpenAI:", cleaned)
+                        asyncio.run_coroutine_threadsafe(transcript_queue.put(cleaned), loop)
+                    else:
+                        print("⏸️ Ignored (no wake-word):", transcript)
+
                 elif transcript != last_transcript:
                     last_transcript = transcript
                     print("🔄 Interim:", transcript)
