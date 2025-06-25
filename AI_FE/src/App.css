@@ -1,83 +1,107 @@
-.App {
+body {
+  margin: 0;
+  background-color: #101010;
+  font-family: 'Segoe UI', sans-serif;
+  color: #eee;
+}
+
+.app-container {
   text-align: center;
+  padding: 200px;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-
-.App-link {
+.title {
+  font-size: 2rem;
+  margin-bottom: 20px;
   color: #61dafb;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.record-button {
+  padding: 12px 24px;
+  font-size: 16px;
+  background-color: #2196f3;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  margin-bottom: 40px;
+  transition: background 0.3s;
 }
 
-
-@keyframes shake {
-  0% { transform: translateX(0px); }
-  25% { transform: translateX(-3px); }
-  50% { transform: translateX(3px); }
-  75% { transform: translateX(-3px); }
-  100% { transform: translateX(0px); }
+.record-button:hover {
+  background-color: #1976d2;
 }
 
+.profiles {
+  display: flex;
+  justify-content: center;
+  gap: 80px;
+  margin-top: 40px;
+}
+
+.profile-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.robot {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(#1e1e1e, #0d0d0d);
+  border: 4px solid #333;
+  box-shadow: 0 0 12px #000;
+  transition: transform 0.2s;
+}
+
+.robot.listening {
+  animation: head-bob 1.5s infinite ease-in-out;
+}
+
+.robot.speaking {
+  animation: pulse 1s infinite;
+}
+
+.status-ring {
+  position: absolute;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 4px solid #4caf50;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: -1;
+}
+
+.robot.speaking .status-ring {
+  opacity: 0.4;
+  animation: glow-ring 1.2s infinite ease-in-out;
+}
+
+.label {
+  margin-top: 10px;
+  font-weight: bold;
+}
+
+@keyframes head-bob {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(6px); }
+  0%, 100% { box-shadow: 0 0 12px #2196f3; }
+ 
+}
 
 @keyframes pulse {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.3);
-  }
-  100% {
-    transform: scale(1);
-  }
+  0%, 100% { box-shadow: 0 0 12px #2196f3; }
+  50% { box-shadow: 0 0 24px #2196f3; }
 }
 
-@keyframes head-listening {
-  0% { transform: rotate(0deg); }
-  25% { transform: rotate(2deg); }
-  50% { transform: rotate(-2deg); }
-  75% { transform: rotate(1deg); }
-  100% { transform: rotate(0deg); }
-}
-
-
-@keyframes head-listening {
-  0% { transform: rotate(0deg); }
-  25% { transform: rotate(1.5deg); }
-  50% { transform: rotate(-1.5deg); }
-  75% { transform: rotate(1deg); }
-  100% { transform: rotate(0deg); }
-}
-
-@keyframes speaking-glow {
-  0% { box-shadow: 0 0 0px #2196f3; }
-  50% { box-shadow: 0 0 15px #2196f3; }
-  100% { box-shadow: 0 0 0px #2196f3; }
+@keyframes glow-ring {
+  0% { transform: scale(1); opacity: 0.4; }
+  50% { transform: scale(1.2); opacity: 0.2; }
+  100% { transform: scale(1); opacity: 0.4; }
 }

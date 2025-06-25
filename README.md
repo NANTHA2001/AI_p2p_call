@@ -47,3 +47,6 @@ Response is converted into audio → streamed back to the user.
 
 
 ![Output Screenshot](output.png)
+
+DETAILED ARCHITECTURE
+![Output Screenshot](output1.png)

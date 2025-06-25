@@ -1,85 +1,25 @@
 import React, { useState, useRef, useEffect } from 'react';
-import './App.css'; // assuming your CSS is in App.css
+import './App.css';
 
-const USER_IMG = 'https://randomuser.me/api/portraits/men/32.jpg';
-// const AI_IMG = 'https://randomuser.me/api/portraits/women/65.jpg';
-// const AI_IMG_TALKING = 'https://randomuser.me/api/portraits/women/66.jpg'; // Simulated mouth-open image
-const AI_IMG = 'https://randomuser.me/api/portraits/women/65.jpg';
-
-// AI talking image (simulated mouth open)
-const AI_IMG_TALKING = 'https://randomuser.me/api/portraits/women/66.jpg';
-
-
-function ProfileWithWave({ img, imgTalking, isSpeaking, isListening, color }) {
-  const headShakeStyle = isListening
-    ? {
-        animation: 'head-listening 1.5s infinite ease-in-out',
-        transformOrigin: 'center bottom',
-      }
-    : {};
-
-  const speakingGlowStyle = isSpeaking
-    ? {
-        animation: 'speaking-glow 1s infinite',
-      }
-    : {};
-
+function RobotProfile({ isSpeaking, isListening, label }) {
   return (
-    <div style={{ position: 'relative', width: 150, height: 150, margin: 20 }}>
-      {/* Background pulse while speaking */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          width: 150,
-          height: 150,
-          borderRadius: '50%',
-          transform: `translate(-50%, -50%)`,
-          backgroundColor: color,
-          opacity: isSpeaking ? 0.3 : 0,
-          filter: 'blur(12px)',
-          pointerEvents: 'none',
-          transition: 'opacity 0.3s',
-          zIndex: 0,
-        }}
-      />
-
-      {/* AI face container */}
-      <div
-        style={{
-          width: 150,
-          height: 150,
-          borderRadius: '50%',
-          border: `4px solid ${color}`,
-          position: 'relative',
-          overflow: 'hidden',
-          zIndex: 1,
-          backgroundColor: '#fff',
-          ...speakingGlowStyle,
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        {/* AI head image */}
-        <img
-          src={isSpeaking ? imgTalking : img}
-          alt="AI"
-          style={{
-            width: '90%',
-            height: '90%',
-            borderRadius: '50%',
-            objectFit: 'cover',
-            ...headShakeStyle,
-          }}
-        />
+    <div className="profile-container">
+      <div className={`robot ${isSpeaking ? 'speaking' : ''} ${isListening ? 'listening' : ''}`}>
+        <svg viewBox="0 0 64 64" width="100" height="100">
+          <g fill="none" stroke="#2196f3" strokeWidth="2">
+            <circle cx="32" cy="32" r="30" fill="#111" stroke="#2196f3" />
+            <circle cx="22" cy="24" r="4" fill="#4caf50" />
+            <circle cx="42" cy="24" r="4" fill="#4caf50" />
+            <path d="M22 40 q10 10 20 0" stroke="#eee" strokeWidth="3" />
+            <rect x="28" y="8" width="8" height="8" fill="#2196f3" rx="2" />
+          </g>
+        </svg>
+        <div className="status-ring" />
       </div>
+      <div className="label">{label}</div>
     </div>
   );
 }
-
-
 
 export default function App() {
   const [isRecording, setIsRecording] = useState(false);
@@ -96,7 +36,6 @@ export default function App() {
 
   useEffect(() => {
     if (!isRecording || !wsRef.current) return;
-
     const interval = setInterval(() => {
       if (wsRef.current.readyState === WebSocket.OPEN) {
         const silence = new Int16Array(480);
@@ -104,7 +43,6 @@ export default function App() {
         console.log('📤 Sent silence packet');
       }
     }, 2000);
-
     return () => clearInterval(interval);
   }, [isRecording]);
 
@@ -114,20 +52,15 @@ export default function App() {
       setAiSpeaking(false);
       return;
     }
-
     const interval = setInterval(() => {
       setVolume(Math.random() * 100);
     }, 100);
-
-    return () => {
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, [isRecording]);
 
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
       const ws = new WebSocket('wss://aip2pcall-production.up.railway.app/ws-stt');
       ws.binaryType = 'arraybuffer';
       wsRef.current = ws;
@@ -136,6 +69,19 @@ export default function App() {
       ws.onclose = (event) => console.log('WebSocket closed:', event.code, event.reason);
 
       ws.onmessage = async (event) => {
+        if (typeof event.data === 'string') {
+          const message = JSON.parse(event.data);
+          if (message.transcript && message.isFinal) {
+            if (currentAudioSourceRef.current) {
+              try { currentAudioSourceRef.current.stop(); } catch (_) {}
+              currentAudioSourceRef.current.disconnect();
+              currentAudioSourceRef.current = null;
+              setAiSpeaking(false);
+            }
+          }
+          return;
+        }
+
         if (event.data instanceof ArrayBuffer) {
           let audioCtx = audioCtxRef.current;
           if (!audioCtx || audioCtx.state === 'closed') {
@@ -144,27 +90,20 @@ export default function App() {
           }
           try {
             const audioBuffer = await audioCtx.decodeAudioData(event.data.slice(0));
-
             if (currentAudioSourceRef.current) {
-              try {
-                currentAudioSourceRef.current.stop();
-              } catch (_) {}
+              try { currentAudioSourceRef.current.stop(); } catch (_) {}
               currentAudioSourceRef.current.disconnect();
               currentAudioSourceRef.current = null;
             }
-
             const source = audioCtx.createBufferSource();
             source.buffer = audioBuffer;
             source.connect(audioCtx.destination);
-
             setAiSpeaking(true);
             setIsRecording(false);
-
             source.onended = () => {
               setAiSpeaking(false);
               setIsRecording(true);
             };
-
             source.start(0);
             currentAudioSourceRef.current = source;
           } catch (err) {
@@ -178,17 +117,13 @@ export default function App() {
       const audioCtx = new AudioContext({ sampleRate: 48000 });
       await audioCtx.audioWorklet.addModule('audio-processor.js');
       audioCtxRef.current = audioCtx;
-
-      if (audioCtx.state !== 'running') {
-        await audioCtx.resume();
-      }
+      if (audioCtx.state !== 'running') await audioCtx.resume();
 
       const source = audioCtx.createMediaStreamSource(stream);
       sourceRef.current = source;
 
       const workletNode = new AudioWorkletNode(audioCtx, 'pcm-worklet');
       workletNodeRef.current = workletNode;
-
       workletNode.port.onmessage = (event) => {
         const pcmBuffer = event.data;
         if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -197,12 +132,10 @@ export default function App() {
       };
 
       source.connect(workletNode);
-
       const gainNode = audioCtx.createGain();
       gainNode.gain.value = 0;
       workletNode.connect(gainNode);
       gainNode.connect(audioCtx.destination);
-
       setIsRecording(true);
     } catch (err) {
       console.error('Error initializing audio stream:', err);
@@ -223,9 +156,7 @@ export default function App() {
     }
 
     if (currentAudioSourceRef.current) {
-      try {
-        currentAudioSourceRef.current.stop();
-      } catch (_) {}
+      try { currentAudioSourceRef.current.stop(); } catch (_) {}
       currentAudioSourceRef.current.disconnect();
       currentAudioSourceRef.current = null;
     }
@@ -238,63 +169,14 @@ export default function App() {
   };
 
   return (
-    <div
-      style={{
-        backgroundColor: '#111',
-        color: '#eee',
-        minHeight: '100vh',
-        padding: 20,
-        fontFamily: 'Arial, sans-serif',
-      }}
-    >
-      <h2 style={{ textAlign: 'center' }}>Audio Streaming Visualizer</h2>
-      <div style={{ textAlign: 'center', marginBottom: 20 }}>
-        <button
-          onClick={isRecording ? stopRecording : startRecording}
-          style={{
-            padding: '12px 24px',
-            fontSize: 18,
-            backgroundColor: isRecording ? '#b33' : '#3b3',
-            border: 'none',
-            borderRadius: 8,
-            color: '#fff',
-            cursor: 'pointer',
-          }}
-        >
-          {isRecording ? 'Stop' : 'Start'} Recording
-        </button>
-      </div>
-
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          gap: 60,
-          alignItems: 'center',
-          marginTop: 50,
-        }}
-      >
-        <div style={{ textAlign: 'center' }}>
-          <ProfileWithWave
-            img={USER_IMG}
-            imgTalking={USER_IMG}
-            isSpeaking={userSpeaking}
-            isListening={false}
-            color="#4caf50"
-          />
-          <div style={{ marginTop: 10, fontWeight: 'bold' }}>You</div>
-        </div>
-
-        <div style={{ textAlign: 'center' }}>
-          <ProfileWithWave
-            img={AI_IMG}
-            imgTalking={AI_IMG_TALKING}
-            isSpeaking={aiSpeaking}
-            isListening={isRecording}
-            color="#2196f3"
-          />
-          <div style={{ marginTop: 10, fontWeight: 'bold' }}>AI</div>
-        </div>
+    <div className="app-container">
+      <h1 className="title">AI Talk Visualizer</h1>
+      <button className="record-button" onClick={isRecording ? stopRecording : startRecording}>
+        {isRecording ? 'Stop' : 'Start'} Talking
+      </button>
+      <div className="profiles">
+        <RobotProfile isSpeaking={userSpeaking} isListening={false} label="You" />
+        <RobotProfile isSpeaking={aiSpeaking} isListening={isRecording} label="AI" />
       </div>
     </div>
   );
