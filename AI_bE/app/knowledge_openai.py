@@ -112,43 +112,40 @@ def quick_detect_info(question: str):
     }
 
 async def generate_openai_response_stream(user_question: str):
-    try:
-        # Quick intent detection
-        info = quick_detect_info(user_question)
-        city = info["location"]
-        topic = info.get("topic")
+    info = quick_detect_info(user_question)
+    city = info["location"]
+    topic = info.get("topic")
 
-        # Start tasks in parallel
-        weather_task = asyncio.create_task(get_weather_update(city)) if info["weather"] else None
-        news_task = asyncio.create_task(get_news(city, topic)) if info["news"] else None
-        augment_task = asyncio.create_task(fetch_augmented_info(user_question))
+    # Start early
+    augment_task = asyncio.create_task(fetch_augmented_info(user_question))
+    weather_task = asyncio.create_task(get_weather_update(city)) if info["weather"] else None
+    news_task = asyncio.create_task(get_news(city, topic)) if info["news"] else None
 
-        # Stream GPT response
-        yield "Nova here. Let me check that for you...\n"
+    yield "Nova here. Let me check that for you...\n"
 
-        context_parts = []
-        if weather_task:
-            context_parts.append(await weather_task)
-        if news_task:
-            context_parts.append(await news_task)
-        context_text = "\n".join(context_parts) or "No contextual info."
+    # Parallel context
+    context_parts = []
+    if weather_task:
+        context_parts.append(await weather_task)
+    if news_task:
+        context_parts.append(await news_task)
 
-        stream = await client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant that answers concisely."},
-                {"role": "user", "content": f"Q: {user_question}\n\nContext:\n{context_text}"}
-            ],
-            stream=True
-        )
+    context_text = "\n".join(context_parts) or "No contextual info."
 
-        async for chunk in stream:
-            if chunk.choices and chunk.choices[0].delta.content:
-                yield chunk.choices[0].delta.content
+    # Call GPT
+    stream = await client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant that answers concisely."},
+            {"role": "user", "content": f"Q: {user_question}\n\nContext:\n{context_text}"}
+        ],
+        stream=True
+    )
 
-        base = await augment_task
-        yield f"\n\nBy the way, I also found this:\n{base}"
+    async for chunk in stream:
+        if chunk.choices and chunk.choices[0].delta.content:
+            yield chunk.choices[0].delta.content
 
-    except Exception as e:
-        print("OpenAI stream error:", e)
-        yield "Sorry, something went wrong."
+    # Post stream tip
+    base = await augment_task
+    yield f"\n\nBy the way, I also found this:\n{base}"
