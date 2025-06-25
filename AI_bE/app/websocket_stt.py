@@ -55,10 +55,10 @@ async def websocket_stt_endpoint(websocket: WebSocket):
             use_enhanced=True,
             speech_contexts=[
                  speech.SpeechContext(
-                    phrases=["Hey Nova", "Nova", "Okay Nova", "Hello Nova"],
-                    boost=20.0  # you can also try 15.0 if too sensitive
+                    phrases=["Hey Nova", "Nova", "nova", "hey nova","okay nova","hello nova", "Okay Nova", "Hello Nova"],
+                    boost=15.0  # you can also try 15.0 if too sensitive
                 ),
-                speech.SpeechContext(phrases=["OpenAI", "ChatGPT", "Nova", "Bigthinkcode","JavaScript", "React", "WebRTC"])
+                speech.SpeechContext(phrases=["OpenAI", "ChatGPT", "Nova","hey Nova", "nova", "Bigthinkcode","JavaScript", "React", "WebRTC"])
             ],
         ),
         interim_results=True,
@@ -79,7 +79,7 @@ async def websocket_stt_endpoint(websocket: WebSocket):
             while not stop_event.is_set():
                 data = await websocket.receive_bytes()
                 buffer += data
-                if time.time() - last_send >= 0.5:
+                if time.time() - last_send >= 0.1:
                     sync_queue.put(speech.StreamingRecognizeRequest(audio_content=buffer))
                     buffer = b''
                     last_send = time.time()
@@ -90,9 +90,9 @@ async def websocket_stt_endpoint(websocket: WebSocket):
 
     async def send_silence_fill():
         while not stop_event.is_set():
-            await asyncio.sleep(2)
+            await asyncio.sleep(5)
             if audio_queue.empty():
-                silence = b'\x00' * 960
+                silence = b'\x00' * 960 
                 sync_queue.put(speech.StreamingRecognizeRequest(audio_content=silence))
 
     def stt_blocking():
