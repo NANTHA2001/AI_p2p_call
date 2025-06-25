@@ -13,4 +13,3 @@ websockets
 beautifulsoup4
 google-api-python-client
 uvicorn
-edge-tts>=6.1.10
