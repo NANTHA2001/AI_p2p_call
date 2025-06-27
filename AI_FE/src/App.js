@@ -31,6 +31,8 @@ export default function App() {
 
   const [volume, setVolume] = useState(0);
   const [aiSpeaking, setAiSpeaking] = useState(false);
+  const [aiThinking, setAiThinking] = useState(false);
+
 
   const userSpeaking = isRecording && volume > 15;
 
@@ -72,7 +74,9 @@ export default function App() {
       ws.onmessage = async (event) => {
         if (typeof event.data === 'string') {
           const message = JSON.parse(event.data);
+      
           if (message.transcript && message.isFinal) {
+            setAiThinking(true); // ✅ Show thinking before receiving audio
             if (currentAudioSourceRef.current) {
               try { currentAudioSourceRef.current.stop(); } catch (_) {}
               currentAudioSourceRef.current.disconnect();
@@ -80,15 +84,17 @@ export default function App() {
               setAiSpeaking(false);
             }
           }
+      
           return;
         }
-
+      
         if (event.data instanceof ArrayBuffer) {
           let audioCtx = audioCtxRef.current;
           if (!audioCtx || audioCtx.state === 'closed') {
             audioCtx = new AudioContext();
             audioCtxRef.current = audioCtx;
           }
+      
           try {
             const audioBuffer = await audioCtx.decodeAudioData(event.data.slice(0));
             if (currentAudioSourceRef.current) {
@@ -96,11 +102,14 @@ export default function App() {
               currentAudioSourceRef.current.disconnect();
               currentAudioSourceRef.current = null;
             }
+      
             const source = audioCtx.createBufferSource();
             source.buffer = audioBuffer;
             source.connect(audioCtx.destination);
+            setAiThinking(false); // ✅ Audio has arrived — stop "thinking"
             setAiSpeaking(true);
             setIsRecording(false);
+      
             source.onended = () => {
               setAiSpeaking(false);
               setIsRecording(true);
@@ -109,11 +118,13 @@ export default function App() {
             currentAudioSourceRef.current = source;
           } catch (err) {
             console.error('Error decoding audio from server:', err);
+            setAiThinking(false);
             setAiSpeaking(false);
             setIsRecording(true);
           }
         }
       };
+      
 
       const audioCtx = new AudioContext({ sampleRate: 48000 });
       await audioCtx.audioWorklet.addModule('audio-processor.js');

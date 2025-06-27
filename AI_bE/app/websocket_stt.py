@@ -50,15 +50,10 @@ async def websocket_stt_endpoint(websocket: WebSocket):
             sample_rate_hertz=48000,
             language_code="en-US",
             enable_automatic_punctuation=True,
-            diarization_speaker_count=2,
             model="default",
             use_enhanced=True,
             speech_contexts=[
-                speech.SpeechContext(
-                    phrases=["Bigthinkcode", "Hey Nova", "Nova", "Okay Nova", "Hello Nova"],
-                    boost=25.0  # you can also try 15.0 if too sensitive
-                ),
-                speech.SpeechContext(phrases=["OpenAI", "ChatGPT", "JavaScript", "React", "WebRTC"])
+                speech.SpeechContext(phrases=["OpenAI","Bigthinkcode" "ChatGPT", "JavaScript", "React", "WebRTC"])
             ],
         ),
         interim_results=True,
@@ -138,6 +133,9 @@ async def websocket_stt_endpoint(websocket: WebSocket):
             async def process_transcript(text: str):
                 try:
                     print("🔍 Fetching OpenAI response for:", text)
+                    
+                    await websocket.send_text(json.dumps({"thinking": True}))
+                    
                     text_stream = generate_openai_response_stream(text)
 
                     full_response = ""
