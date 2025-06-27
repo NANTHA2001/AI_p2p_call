@@ -53,7 +53,7 @@ async def websocket_stt_endpoint(websocket: WebSocket):
             model="default",
             use_enhanced=True,
             speech_contexts=[
-                speech.SpeechContext(phrases=["OpenAI","Bigthinkcode" "ChatGPT", "JavaScript", "React", "WebRTC"])
+                speech.SpeechContext(phrases=["OpenAI","ChatGPT", "JavaScript", "React", "WebRTC", "Bigthinkcode"],boost=15.0 )
             ],
         ),
         interim_results=True,
@@ -74,7 +74,7 @@ async def websocket_stt_endpoint(websocket: WebSocket):
             while not stop_event.is_set():
                 data = await websocket.receive_bytes()
                 buffer += data
-                if time.time() - last_send >= 0.2:
+                if time.time() - last_send >= 0.05:
                     sync_queue.put(speech.StreamingRecognizeRequest(audio_content=buffer))
                     buffer = b''
                     last_send = time.time()
@@ -86,7 +86,7 @@ async def websocket_stt_endpoint(websocket: WebSocket):
     async def send_silence_fill():
         SILENCE_CHUNK = b'\x00' * 9600  # 100ms of silence @ 48kHz mono 16-bit
         while not stop_event.is_set():
-            await asyncio.sleep(0.1)  # Send every 100ms
+            await asyncio.sleep(0.05)  # Send every 100ms
             sync_queue.put(speech.StreamingRecognizeRequest(audio_content=SILENCE_CHUNK))
 
 
