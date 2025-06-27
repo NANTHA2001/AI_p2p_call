@@ -35,11 +35,17 @@ async def websocket_stt_endpoint(websocket: WebSocket):
     executor = concurrent.futures.ThreadPoolExecutor()
 
     # ✅ Load credentials from env (Railway-compatible)
-    credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-    if not credentials_path or not os.path.exists(credentials_path):
-        raise RuntimeError("Missing or invalid GOOGLE_APPLICATION_CREDENTIALS path")
+    credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    if not credentials_json:
+        raise RuntimeError("Missing GOOGLE_APPLICATION_CREDENTIALS_JSON env variable")
+    credentials_info = json.loads(credentials_json)
+    credentials = service_account.Credentials.from_service_account_info(credentials_info)
 
-    credentials = service_account.Credentials.from_service_account_file(credentials_path)
+    # credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    # if not credentials_path or not os.path.exists(credentials_path):
+    #     raise RuntimeError("Missing or invalid GOOGLE_APPLICATION_CREDENTIALS path")
+
+    # credentials = service_account.Credentials.from_service_account_file(credentials_path)
 
     # ✅ Use credentials to create SpeechClient
     speech_client = speech.SpeechClient(credentials=credentials)
