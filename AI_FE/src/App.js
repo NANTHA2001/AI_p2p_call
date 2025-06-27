@@ -61,8 +61,8 @@ export default function App() {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // const ws = new WebSocket('wss://aip2pcall-production.up.railway.app/ws-stt');
-      const ws = new WebSocket('ws://localhost:3001/ws-stt');
+      const ws = new WebSocket('wss://aip2pcall-production.up.railway.app/ws-stt');
+      // const ws = new WebSocket('ws://localhost:3001/ws-stt');
       ws.binaryType = 'arraybuffer';
       wsRef.current = ws;
 
