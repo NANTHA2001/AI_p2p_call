@@ -183,13 +183,22 @@ export default function App() {
   return (
     <div className="app-container">
       <h1 className="title">AI Talk Visualizer</h1>
+  
       <button className="record-button" onClick={isRecording ? stopRecording : startRecording}>
         {isRecording ? 'Stop' : 'Start'} Talking
       </button>
+
+      {aiThinking && (
+        <div className="thinking-indicator">
+          🤖 AI is thinking...
+        </div>
+      )}
+  
       <div className="profiles">
         <RobotProfile isSpeaking={userSpeaking} isListening={false} label="You" />
         <RobotProfile isSpeaking={aiSpeaking} isListening={isRecording} label="AI" />
       </div>
     </div>
   );
+  
 }
