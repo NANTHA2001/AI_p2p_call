@@ -1,6 +1,6 @@
 [build]
   base = "AI_FE"
-  publish = "AI_FE/build"
+  publish = "build"
   command = "npm install --legacy-peer-deps && npm run build"
 
 [[redirects]]
