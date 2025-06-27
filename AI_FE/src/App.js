@@ -23,16 +23,15 @@ function RobotProfile({ isSpeaking, isListening, label }) {
 
 export default function App() {
   const [isRecording, setIsRecording] = useState(false);
+  const [volume, setVolume] = useState(0);
+  const [aiSpeaking, setAiSpeaking] = useState(false);
+  const [aiThinking, setAiThinking] = useState(false);
+
   const wsRef = useRef(null);
   const audioCtxRef = useRef(null);
   const workletNodeRef = useRef(null);
   const sourceRef = useRef(null);
   const currentAudioSourceRef = useRef(null);
-
-  const [volume, setVolume] = useState(0);
-  const [aiSpeaking, setAiSpeaking] = useState(false);
-  const [aiThinking, setAiThinking] = useState(false);
-
 
   const userSpeaking = isRecording && volume > 15;
 
@@ -64,19 +63,23 @@ export default function App() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const ws = new WebSocket('wss://aip2pcall-production.up.railway.app/ws-stt');
-      // const ws = new WebSocket('ws://localhost:3001/ws-stt');
+      // const ws = new WebSocket('ws://localhost:3001/ws-stt'); // Update this to your production URL
       ws.binaryType = 'arraybuffer';
       wsRef.current = ws;
 
-      ws.onerror = (error) => console.error('WebSocket error:', error);
-      ws.onclose = (event) => console.log('WebSocket closed:', event.code, event.reason);
+      ws.onerror = (err) => console.error('WebSocket error:', err);
+      ws.onclose = (e) => console.log('WebSocket closed:', e.code, e.reason);
 
       ws.onmessage = async (event) => {
         if (typeof event.data === 'string') {
           const message = JSON.parse(event.data);
-      
+          if (message.thinking) {
+            console.log("🤖 AI is thinking triggered");
+            setAiThinking(true);
+            return;
+          }
+
           if (message.transcript && message.isFinal) {
-            setAiThinking(true); // ✅ Show thinking before receiving audio
             if (currentAudioSourceRef.current) {
               try { currentAudioSourceRef.current.stop(); } catch (_) {}
               currentAudioSourceRef.current.disconnect();
@@ -84,17 +87,18 @@ export default function App() {
               setAiSpeaking(false);
             }
           }
-      
+
           return;
         }
-      
+
+        // Handle audio buffer
         if (event.data instanceof ArrayBuffer) {
           let audioCtx = audioCtxRef.current;
           if (!audioCtx || audioCtx.state === 'closed') {
             audioCtx = new AudioContext();
             audioCtxRef.current = audioCtx;
           }
-      
+
           try {
             const audioBuffer = await audioCtx.decodeAudioData(event.data.slice(0));
             if (currentAudioSourceRef.current) {
@@ -102,14 +106,14 @@ export default function App() {
               currentAudioSourceRef.current.disconnect();
               currentAudioSourceRef.current = null;
             }
-      
+
             const source = audioCtx.createBufferSource();
             source.buffer = audioBuffer;
             source.connect(audioCtx.destination);
-            setAiThinking(false); // ✅ Audio has arrived — stop "thinking"
+            setAiThinking(false); // AI done thinking
             setAiSpeaking(true);
             setIsRecording(false);
-      
+
             source.onended = () => {
               setAiSpeaking(false);
               setIsRecording(true);
@@ -124,7 +128,6 @@ export default function App() {
           }
         }
       };
-      
 
       const audioCtx = new AudioContext({ sampleRate: 48000 });
       await audioCtx.audioWorklet.addModule('audio-processor.js');
@@ -136,6 +139,7 @@ export default function App() {
 
       const workletNode = new AudioWorkletNode(audioCtx, 'pcm-worklet');
       workletNodeRef.current = workletNode;
+
       workletNode.port.onmessage = (event) => {
         const pcmBuffer = event.data;
         if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -148,6 +152,7 @@ export default function App() {
       gainNode.gain.value = 0;
       workletNode.connect(gainNode);
       gainNode.connect(audioCtx.destination);
+
       setIsRecording(true);
     } catch (err) {
       console.error('Error initializing audio stream:', err);
@@ -178,12 +183,13 @@ export default function App() {
 
     setIsRecording(false);
     setAiSpeaking(false);
+    setAiThinking(false);
   };
 
   return (
     <div className="app-container">
       <h1 className="title">AI Talk Visualizer</h1>
-  
+
       <button className="record-button" onClick={isRecording ? stopRecording : startRecording}>
         {isRecording ? 'Stop' : 'Start'} Talking
       </button>
@@ -193,12 +199,11 @@ export default function App() {
           🤖 AI is thinking...
         </div>
       )}
-  
+
       <div className="profiles">
         <RobotProfile isSpeaking={userSpeaking} isListening={false} label="You" />
         <RobotProfile isSpeaking={aiSpeaking} isListening={isRecording} label="AI" />
       </div>
     </div>
   );
-  
 }

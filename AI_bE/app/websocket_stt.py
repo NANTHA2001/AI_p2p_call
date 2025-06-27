@@ -35,11 +35,11 @@ async def websocket_stt_endpoint(websocket: WebSocket):
     executor = concurrent.futures.ThreadPoolExecutor()
 
     # ✅ Load credentials from env (Railway-compatible)
-    credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-    if not credentials_json:
-        raise RuntimeError("Missing GOOGLE_APPLICATION_CREDENTIALS_JSON env variable")
-    credentials_info = json.loads(credentials_json)
-    credentials = service_account.Credentials.from_service_account_info(credentials_info)
+    credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    if not credentials_path or not os.path.exists(credentials_path):
+        raise RuntimeError("Missing or invalid GOOGLE_APPLICATION_CREDENTIALS path")
+
+    credentials = service_account.Credentials.from_service_account_file(credentials_path)
 
     # ✅ Use credentials to create SpeechClient
     speech_client = speech.SpeechClient(credentials=credentials)
@@ -74,7 +74,7 @@ async def websocket_stt_endpoint(websocket: WebSocket):
             while not stop_event.is_set():
                 data = await websocket.receive_bytes()
                 buffer += data
-                if time.time() - last_send >= 0.05:
+                if time.time() - last_send >= 0.5:
                     sync_queue.put(speech.StreamingRecognizeRequest(audio_content=buffer))
                     buffer = b''
                     last_send = time.time()
@@ -86,7 +86,7 @@ async def websocket_stt_endpoint(websocket: WebSocket):
     async def send_silence_fill():
         SILENCE_CHUNK = b'\x00' * 9600  # 100ms of silence @ 48kHz mono 16-bit
         while not stop_event.is_set():
-            await asyncio.sleep(0.05)  # Send every 100ms
+            await asyncio.sleep(0.5)  # Send every 100ms
             sync_queue.put(speech.StreamingRecognizeRequest(audio_content=SILENCE_CHUNK))
 
 
@@ -131,6 +131,7 @@ async def websocket_stt_endpoint(websocket: WebSocket):
                 print("⛔ Previous AI response interrupted")
 
             async def process_transcript(text: str):
+               
                 try:
                     print("🔍 Fetching OpenAI response for:", text)
                     
